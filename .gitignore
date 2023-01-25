@@ -1,0 +1,9 @@
+ELAR_Data/
+PHEONIX-2014-T
+.vscode/
+__pycache__
+classes_pheonix.json
+classes.json
+data_no_sentences.json
+data_sentences.json
+extract_data.ipynb
