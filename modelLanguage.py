@@ -11,8 +11,8 @@ class LanguageModule(nn.Module):
             nn.Linear(512, 1024),
             nn.Linear(1024, 1024)
         )
-        self.model = MBartModel.from_pretrained("facebook/mbart-large-cc25")
-        self.tokenizer = MBartTokenizer.from_pretrained("facebook/mbart-large-cc25")
+        # self.model = MBartModel.from_pretrained("facebook/mbart-large-cc25")
+        # self.tokenizer = MBartTokenizer.from_pretrained("facebook/mbart-large-cc25")
 
     def forward(self, x):
         if map:
