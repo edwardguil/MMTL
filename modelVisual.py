@@ -7,10 +7,10 @@ from torch.nn.utils.rnn import PackedSequence
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class VisualModule(nn.Module):
-    def __init__(self, num_class, classify=True):
+    def __init__(self, num_class, classify=True, backbone_weights="./S3D_kinetics400.pt"):
         super(VisualModule, self).__init__()
         self.classify = classify
-        self.backbone = load_weights(S3D(num_class), "./S3D_kinetics400.pt")
+        self.backbone = load_weights(S3D(num_class), backbone_weights)
         self.head = nn.Sequential(
             # Projection block
             nn.Linear(832, 832), # Input: N x T/4 x 832
@@ -31,7 +31,11 @@ class VisualModule(nn.Module):
     def forward(self, x):
         y = self.backbone(x)
         y = self.head(y)
-        gloss_pred = self.classifier(y).permute(1, 0, 2)
+        gloss_pred = None
+        if self.classify:
+            gloss_pred = self.classifier(y).permute(1, 0, 2)
+
+
         return y, gloss_pred
 
 

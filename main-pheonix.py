@@ -7,39 +7,37 @@ import torchvision
 from s3d import S3D
 from modelEndToEnd import EndToEndModule
 from datasets import ElarDataset, PheonixDataset, BobslDataset, elar_collate_fn
+from torchtext.data.metrics import bleu_score
 from functools import partial
 import psutil
-import time
 
 def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # ------- Data Prep
-    weights_file = './S3D_kinetics400.pt'    
+    weights_file = os.path.join('S3D_kinetics400+WLASL', 'S3D_kinetics400+WLASL3-7.pkl')    
     # Prepare Data Sample
     #dataset = ElarDataset('train_elar.json', 'classes_elar.txt', './ELAR_data')#, mean=[0.2481, 0.2395, 0.3078], std=[0.2542, 0.2231, 0.2403])
     
-    # dataset = PheonixDataset("/home/groups/auslan-ai/PHOENIX-2014-T", class_file="classes_pheonix.json", split="train")
-    # dataloader = DataLoader(dataset, batch_size=1, collate_fn=partial(elar_collate_fn, device=device), shuffle=True)
-    # datasetEval = PheonixDataset("/home/groups/auslan-ai/PHEONIX-2014-T", class_file="classes_pheonix.json", split="dev")
-    # dataloaderEval = DataLoader(dataset, batch_size=2, collate_fn=partial(elar_collate_fn, device=device), shuffle=True)
-    # /home/groups/auslan-ai/
-    print("Loading Data")
-    batch_size = 10
-    dataset = BobslDataset("/home/groups/auslan-ai/bobsl", split="train")
-    total_examples = len(dataset)
-    dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=partial(elar_collate_fn, device=device), shuffle=False)
-    #datasetEval = BobslDataset("/home/groups/auslan-ai/bobsl", split="val")
-    #dataloaderEval = DataLoader(datasetEval, batch_size=1, collate_fn=partial(elar_collate_fn, device=device), shuffle=True)
-
-    print("Started Calculation")
-    mean, std = batch_mean_and_sd(dataloader, batch_size, total_examples)
-    print(f"Mean: {mean} | Std: {std}", flush=True)
-    exit()
+    dataset = PheonixDataset("/home/groups/auslan-ai/PHOENIX-2014-T", class_file="classes_pheonix.json", split="train", mean=[0.5367, 0.5268, 0.5192], std=[0.2869, 0.2955, 0.3259])
+    dataloader = DataLoader(dataset, batch_size=1, collate_fn=partial(elar_collate_fn, device=device), shuffle=True)
+    datasetEval = PheonixDataset("/home/groups/auslan-ai/PHOENIX-2014-T", class_file="classes_pheonix.json", split="val", mean=[0.5367, 0.5268, 0.5192], std=[0.2869, 0.2955, 0.3259])
+    dataloaderEval = DataLoader(datasetEval, batch_size=1, collate_fn=partial(elar_collate_fn, device=device), shuffle=True)
     num_class = dataset.num_classes()
 
-    # ------- Model Setup
-    model = EndToEndModule(num_class, classify=False).to(device)
+    # /home/groups/auslan-ai/
+    # dataset = BobslDataset("/home/groups/auslan-ai/bobsl", split="train")
+    # dataloader = DataLoader(dataset, batch_size=1, collate_fn=partial(elar_collate_fn, device=device), shuffle=False)
+    #datasetEval = BobslDataset("/home/groups/auslan-ai/bobsl", split="val")
+    #dataloaderEval = DataLoader(datasetEval, batch_size=1, collate_fn=partial(elar_collate_fn, device=device), shuffle=True)
+    # print("Started mean and std calculation PHEONIX")
+    # mean, std = batch_mean_and_sd(dataloader)
+    # print(mean, " : ", std)
+    # exit()
 
+
+    # ------- Model Setup
+    model = EndToEndModule(num_class, classify=True, backbone_weights=weights_file, tgt_lang="de_DE").to(device)
+    model.train(True)
     num_epochs = 20
     #optimizer = torch.optim.Adam(list(model_visual.parameters()) + list(model_language.parameters()))
     optimizer = torch.optim.Adam(model.parameters())
@@ -49,66 +47,63 @@ def main():
     print("Started training")
     # ------- Model Training
     for epoch in range(num_epochs):
-        culm_loss = 0
-        culm_acc = 0
+        culm_loss_visual = 0
+        culm_loss_lang = 0
+        # culm_bleu = 0
         for step, (input, input_lengths, gloss_targets, gloss_lengths, freetransl) in enumerate(dataloader):
             # forward pass
-            sentence_pred, gloss_pred = model(input)
-            # Add positional embeddings?
-            # loss_visual = loss_fn_visual(gloss_pred, gloss_targets, input_lengths, gloss_lengths)
-            loss_language = loss_fn_language(sentence_pred, freetransl)
-            culm_loss += loss_language.item()
+            logits, gloss_pred = model(input, freetransl)
+            loss_visual = loss_fn_visual(gloss_pred, gloss_targets, input_lengths, gloss_lengths)
+            loss_lang = loss_fn_language(logits['logits'].permute(0, 2, 1), model.get_targets())
+            
+            culm_loss_visual += loss_visual.item()
+            culm_loss_lang += loss_lang.item()
+            # culm_blue += bleu_score(sentence_pred, freetransl)
 
             # backward pass
             optimizer.zero_grad()
-            lossCombined = loss_language # + loss_visual
+            lossCombined = loss_visual + loss_visual
             lossCombined.backward()
             optimizer.step()
 
-        culm_loss_eval = 0
-        culm_acc_eval = 0
+        culm_loss_visual_eval = 0
+        culm_loss_lang_eval = 0
+        culm_bleu_eval = 0
         for step_eval, (input, input_lengths, gloss_targets, gloss_lengths, freetransl) in enumerate(dataloaderEval):
             with torch.no_grad():
-                sentence_pred, gloss_pred = model(input)
+                logits, gloss_pred = model(input, freetransl)
                 # Add positional embeddings?
-                # loss_visual = loss_fn_visual(gloss_pred, gloss_targets, input_lengths, gloss_lengths)
-                loss_language = loss_fn_language(sentence_pred, freetransl)
+                loss_visual = loss_fn_visual(gloss_pred, gloss_targets, input_lengths, gloss_lengths)
+                loss_lang = loss_fn_language(logits['logits'].permute(0, 2, 1), model.get_targets())
 
-                culm_loss_eval += loss_language.item()
+                culm_loss_visual_eval += loss_visual.item()
+                culm_loss_lang_eval += loss_lang.item()
+                # culm_blue_eval += bleu_score(sentence_pred, freetransl)
 
-        print (f'Epoch [{epoch+1}/{num_epochs}], Loss: {culm_loss/(step + 1):.4f}, Eval Loss: {culm_loss_eval/(step_eval + 1):.4f}')
+        # BLEU: {culm_bleu/(step + 1):.4f} , BLEU Eval: {culm_bleu_eval/(step + 1):.4f}
+        print (f'Epoch [{epoch+1}/{num_epochs}], Loss Visual: {culm_loss_visual/(step + 1):.4f}, Loss Lang: {culm_loss_lang/(step + 1):.4f}, Loss Visual Eval: {culm_loss_visual_eval/(step_eval + 1):.4f}, Loss Lang Eval: {culm_loss_lang_eval/(step_eval + 1):.4f}')
         #print (f'Epoch [{epoch+1}/{num_epochs}], Loss: {culm_loss/(step + 1):.4f}, Acc: {culm_acc/(step + 1):.4f}, Eval Loss: {culm_loss_eval/(step_eval + 1):.4f}, Eval Acc: {culm_acc_eval/(step_eval + 1):.4f}')
-        torch.save(model.state_dict(),f'./eTe-kinetics400+BOBSL-{epoch}.pkl')
+        torch.save(model.state_dict(),f'./eTe-kinetics400+WLASL+Pheonix-{epoch}.pkl')
 
 
-class MeanModule(torch.nn.Module):
-    def __init__(self):
-        super(MeanModule, self).__init__()
-
-    def forward(self, x):
-        channels_sum = torch.mean(x, dim=[0,2,3,4])
-        channels_squared_sum = torch.mean(x**2, dim=[0,2,3,4])
-
-        return channels_sum, channels_squared_sum
-
-
-def batch_mean_and_sd(dataloader, batches, total_examples):
-    start_time = time.time()
+def batch_mean_and_sd(dataloader):
     with torch.no_grad():
         channels_sum, channels_squared_sum, num_batches = 0, 0, 0
         try:
             for step, (data, input_lengths, gloss_targets, gloss_lengths, freetransl) in enumerate(dataloader):
                 # Mean over batch, height and width, but not over the channels
+                used = psutil.virtual_memory()[2]
+                available = psutil.virtual_memory()[3]/1000000000
                 channels_sum += torch.mean(data, dim=[0,2,3,4])
                 channels_squared_sum += torch.mean(data**2, dim=[0,2,3,4])
                 num_batches += 1
-                if step % (1000 / batches) == 0:
-                    print(f"Step: {step}. ETA: {((time.time() - start_time) / (batches * (step + 1))) * total_examples}. Channels: {channels_sum}. Channels Squared: {channels_squared_sum}. Num Batch: {num_batches}. Freetransl {freetransl[0]}.", flush=True)
-                    
+
         except Exception as e:
             print(f"Exception Caught: {e}")
+            print('RAM memory % used:', used)
+            print('RAM Used (GB):', available)
             print(f"Step: {step}. Freetransl {freetransl}.")
-            print(f"Channels: {channels_sum}. Channels Squared {channels_squared_sum}")
+            print(f"Channels Sum: {channels_sum}. Channels Squared Sum: {channels_squared_sum}")
             exit()
 
         mean = channels_sum / num_batches

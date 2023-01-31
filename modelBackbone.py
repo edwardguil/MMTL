@@ -26,7 +26,7 @@ class S3D(nn.Module):
 
     def forward(self, x):
         y = self.base(x)
-        # y = spatial_pyramid_pool(y, y.size(1), [x.size(2)), x.size(3)], [832, 1, 1])
+        # y = spatial_pyramid_pool(y, y.size(0), [x.size(2)), x.size(3)], [832, 1, 1])
         y = F.avg_pool3d(y, (1, y.size(3), y.size(4)), stride=1)
         y = y.view(y.size(0), y.size(2), y.size(1))
         # Data becomes spatially invariant, but not temporarily invariant
