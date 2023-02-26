@@ -33,8 +33,10 @@ webvtt-py==0.4.6
 3) Download Pheonix Dataset to root of repo, name folder "PHOENIX-2014-T"
 4) Run example-Phoenix.py
 
-### Author Notes
+## Author Notes
 This repository was built for a 10 week research effort into Auslan sign language translation (SLT). It aimed to answer if pretraining on a dataset with no glosses but a large vocabulary overlap (BOBSL), could improve the performance of Auslan SLT. Unforunetly, due to hardware and time constraints, this network was unable to be trained on the BOBSL dataset, thus unable to answer the key question. On the positive side, it was able to demonstrate improvements on Auslan SLT by progressive pretraining on cross-domain languages (ASL, DGS) and general-domain tasks (action recgonotion and language translation). 
+
+If you have any questions or need help in implementation, feel free to PR this README. 
 
 ## References
 <a id=1>[1]</a> Chen, Yutong, Fangyun Wei, Xiao Sun, Zhirong Wu and Stephen Lin. “A Simple Multi-Modality Transfer Learning Baseline for Sign Language Translation.” 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) (2022): 5110-5120.
