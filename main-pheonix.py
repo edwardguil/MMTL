@@ -1,7 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
 from models import VisualModule, LanguageModule, EndToEndModule, load_weights
-from modelLanguage import LanguageModule
 from datasets import ElarDataset, PheonixDataset, BobslDataset, collate_fn, batch_mean_and_sd
 from torchtext.data.metrics import bleu_score
 from functools import partial
@@ -24,7 +23,7 @@ def main(weights):
 
     num_class = dataset.num_classes()
     # ------- Model Setup
-    model = EndToEndModule(num_class, classify=True, backbone_weights="", src_lang="de_GL", tgt_lang="de_DE", freeze=True)
+    model = EndToEndModule(num_class, backbone_weights="", src_lang="de_GL", tgt_lang="de_DE", freeze=True)
     model.add_tokens(dataset.get_class_names())
     load_weights(model, weights)
     model.to(device)

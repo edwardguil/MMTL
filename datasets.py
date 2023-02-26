@@ -7,75 +7,38 @@ from pytorchvideo.transforms import ApplyTransformToKey, UniformTemporalSubsampl
 from torchvision.transforms._transforms_video import NormalizeVideo
 from PIL import Image
 
-class BobslDataset(Dataset):
-    def __init__(self, root, split="train", transform_video=True, 
-            width=224, height=224, fps=25, mean=[0, 0, 0], std=[1, 1, 1]):
-        self.root = root
-        self.split = split
-        self.video_list = self.get_video_list(root)[496202:]
-        self.transform_video = transform_video
-        self.width = width
-        self.height = height
-        self.mean = mean
-        self.std = std
-        self.fps = fps
-
-    def __len__(self):
-        return len(self.video_list)
-
-    def __getitem__(self, idx):
-        filename, start, end, sentence = self.video_list[idx]       
-
-        video_path = os.path.join(self.root, "videos", f"{filename}.mp4")
-        if not os.path.exists(video_path):
-            raise ValueError(f"{video_path} dosen't exist.")
-        
-        video_data = {"video" : read_video(video_path, start_pts=start, end_pts=end, pts_unit="sec", output_format="TCHW")[0].permute(1, 0, 2, 3)}
-        
-        if self.transform_video:
-            transform =  ApplyTransformToKey(
-                key="video",
-                transform=Compose(
-                    [
-                        Resize((self.width, self.height)),
-                        Lambda(lambda x: x/255.0),
-                        NormalizeVideo(self.mean, self.std)
-                    ]
-                ),
-            )
-
-            video_data = transform(video_data)
-
-        return video_data["video"], sentence, [0]
-
-    def num_class(self):
-        return 2
-
-    def get_video_list(self, path):
-        # Helper for converting vtt time into seconds
-        to_seconds = lambda x: (lambda y: int(y[0]) * 3600 + int(y[1]) * 60 + float(y[2]))(x.split(":"))
-        if self.split not in ["train", "test", "val"]:
-            raise ValueError("Split argument must be 'train', 'test' or 'val'.")
-
-        with open(os.path.join(path, "subset2episode.json"), "r") as file:
-            filename_set = json.load(file)[self.split]
-
-        video_list = []
-        for filename in filename_set:
-            for caption in webvtt.read(os.path.join("subtitles", f'{filename}.vtt')):
-                video_list.append([filename, to_seconds(caption.start), to_seconds(caption.end), caption.text])
-        return video_list
-    
 class ElarDataset(Dataset):
-    '''
-    Custom Dataset for Elar Data.
-    '''
+    """
+    PyTorch Dataset to load videos and annotations from the ELAR corpus.
 
-    def __init__(self, annotations_file, class_file, root, lexicon_file="None", freetransl=True, transform_video=True,
+    Args:
+        annotations_file (str): Path to the JSON file containing annotations. 
+            See github for format.
+        class_file (str): Path to the file containing class names.
+        root (str): Root directory of the dataset.
+        freetransl (bool): Whether to use the free translation provided in annotations.
+        transform_video (bool): Whether to apply transformations to video frames.
+        width (int): Width of the output video frame.
+        height (int): Height of the output video frame.
+        fps (int): Frames per second to sample the video.
+        mean (list): List of mean values for normalization of the video.
+        std (list): List of standard deviation values for normalization of the video.
+        warnings (bool): Whether to show warnings during data loading.
+
+    Methods:
+        __len__(self): Returns the number of videos in the dataset.
+        __getitem__(self, idx): Returns the video data, free translation, and gloss targets for a given index.
+        num_classes(self): Returns the number of unique gloss targets in the dataset.
+        get_class_names(self): Returns a list of the unique gloss targets in the dataset.
+        read_elar(self, path): Reads the annotations from a JSON file and returns a list of videos with associated metadata.
+        read_class_file(self, path): Reads the class names from a file and returns a list.
+        convert_idx_str(self, glosses): Converts a list of gloss targets to a single string of indices.
+    """
+
+    def __init__(self, annotations_file, class_file, root, freetransl=True, transform_video=True,
             width=224, height=224, fps=25, mean=[0, 0, 0], std=[1, 1, 1], warnings=True):
         self.video_list = self.read_elar(annotations_file)
         self.class_map = self.read_class_file(class_file)
-        self.lexicon_map = self.read_lexicon(lexicon_file)
         self.root = root
         self.freetransl = freetransl
         self.transform_video = transform_video
@@ -87,9 +50,24 @@ class ElarDataset(Dataset):
         self.warnings = warnings
 
     def __len__(self):
+        """
+        Returns the number of clips in the dataset.
+        
+        Returns:
+            int: Number of clips in the dataset.
+        """
         return len(self.video_list)
 
     def __getitem__(self, idx):
+        """
+        Returns the video data, free translation, and gloss targets for a given index.
+        
+        Args:
+            idx (int): Index of the video in the dataset to retrieve.
+        
+        Returns:
+            tuple: A tuple containing video data, free translation, and gloss targets for the given index.
+        """
         filename = self.video_list[idx]["FileName"]
         start = self.video_list[idx]['Start'] / 1000 # Convert ms to s
         end = self.video_list[idx]['End'] / 1000
@@ -138,12 +116,49 @@ class ElarDataset(Dataset):
         return video_data['video'], freetransl, gloss_targets  
 
     def num_classes(self):
+        """
+        Returns the number of unique gloss targets in the dataset.
+        
+        Returns:
+            int: Number of unique gloss targets in the dataset.
+        """
         return len(self.class_map)
 
     def get_class_names(self):
+        """
+        Returns a list of the unique gloss targets in the dataset.
+        
+        Returns:
+            list: A list of the unique gloss targets in the dataset.
+        """
         return list(self.class_map.keys())
 
     def read_elar(self, path):
+        """
+        Reads the annotations from a JSON file and returns a list of videos with associated metadata.
+        The format should be as follows:
+            {
+                "Folder Name": [
+                {
+                    "FreeTransl": "A sentence level translation.",
+                    "Start": (int) start time of clip in video,
+                    "End": (int) end time of clip in video,
+                    "Glosses": [
+                        "GLOSS1",
+                        "GLOSS2"
+                    ],
+                    "Idx": (int) global index of this clip ,
+                    "FileName": "name of the video contained in this folder"
+                },
+            .. 
+            }
+
+        Args:
+            path (str): Path to the JSON file containing annotations.
+        
+        Returns:
+            list: A list of videos with associated metadata.
+        """
         video_list = []
         with open(path, "r") as file:
             data = json.load(file)
@@ -152,28 +167,177 @@ class ElarDataset(Dataset):
                 value.update({"FileName" : key})
                 video_list.append(value)
         return video_list
-
-    def read_lexicon(self, path):
-        return None
-        with open(path, "r") as file:
-            data = file.readlines()
-        return {k[:-1]: v for v, k in enumerate(data)}
     
     def read_class_file(self, path):
+        """
+        Reads the class names (glosses) from a file and returns a list. 
+        Each line has a single gloss.
+        
+        Args:
+            path (str): Path to the file containing class names.
+        
+        Returns:
+            list: A list of class names.
+        """
         class_names = [c.strip() for c in open(path)]
         self.class_names = [name.upper() for name in class_names]
         return class_names
 
-
     def convert_idx_str(self, glosses):
+        """
+        Converts a list of gloss indices to a single string of glosses.
+        
+        Args:
+            glosses (list): A list of gloss indices to convert.
+        
+        Returns:
+            str: A single string of glosses.
+        """
         str = ""
         for gloss in glosses:
             str += self.class_map[gloss]
             str += " "
         return str
 
+class BobslDataset(Dataset):
+    """PyTorch Dataset for the BOBSL dataset. 
+
+    Args:
+        root (str): The root directory of the BOBSL dataset.
+        split (str, optional): The split to use. Must be one of 'train', 'test', or 'val'. 
+        transform_video (bool, optional): Whether or not to apply video transforms.
+        width (int, optional): The width of the transformed video.
+        height (int, optional): The height of the transformed video.
+        fps (int, optional): The frames per second of the video.
+        mean (list, optional): The mean values for normalization of the video.
+        std (list, optional): The standard deviation values for normalization of the video.
+
+    Methods:
+        __len__(): Returns the length of the dataset.
+        __getitem__(idx): Returns the item at the given index.
+        num_class(): Returns the number of classes in the dataset.
+        get_video_list(path): Helper method to get a list of videos for the dataset.
+
+    """
+    def __init__(self, root, split="train", transform_video=True, 
+            width=224, height=224, fps=25, mean=[0, 0, 0], std=[1, 1, 1]):
+        """Initializes the BOBSL dataset.
+
+        Args:
+            root (str): The root directory of the BOBSL dataset.
+            split (str, optional): The split to use. Must be one of 'train', 'test', or 'val'.
+            transform_video (bool, optional): Whether or not to apply video transforms.
+            width (int, optional): The width of the transformed video.
+            height (int, optional): The height of the transformed video.
+            fps (int, optional): The frames per second of the video.
+            mean (list, optional): The mean values for normalization of the video.
+            std (list, optional): The standard deviation values for normalization of the video.
+        """
+        self.root = root
+        self.split = split
+        self.video_list = self.get_video_list(root)
+        self.transform_video = transform_video
+        self.width = width
+        self.height = height
+        self.mean = mean
+        self.std = std
+        self.fps = fps
+
+    def __len__(self):
+        """Returns the length of the dataset.
+
+        Returns:
+            int: The length of the dataset.
+        """
+        return len(self.video_list)
+
+    def __getitem__(self, idx):
+        """Returns the item at the given index.
+
+        Args:
+            idx (int): The index of the item to return.
+
+        Returns:
+            tuple: A tuple containing the video data, the sentence for the video, and a list of targets.
+        """
+        filename, start, end, sentence = self.video_list[idx]       
+
+        video_path = os.path.join(self.root, "videos", f"{filename}.mp4")
+        if not os.path.exists(video_path):
+            raise ValueError(f"{video_path} dosen't exist.")
+        
+        video_data = {"video" : read_video(video_path, start_pts=start, end_pts=end, pts_unit="sec", output_format="TCHW")[0].permute(1, 0, 2, 3)}
+        
+        if self.transform_video:
+            transform =  ApplyTransformToKey(
+                key="video",
+                transform=Compose(
+                    [
+                        Resize((self.width, self.height)),
+                        Lambda(lambda x: x/255.0),
+                        NormalizeVideo(self.mean, self.std)
+                    ]
+                ),
+            )
+
+            video_data = transform(video_data)
+
+        return video_data["video"], sentence, [0]
+
+    def num_class(self):
+        """Disregard. Implemented for continuity. """
+        return 2
+
+    def get_video_list(self, path):
+        """Helper method taht extracts the list of clips and their captions 
+        from all the vtt files.
+
+        Args:
+            path (str): The path to the dataset.
+
+        Returns:
+            list: A list of videos for the dataset.
+        """
+        # Helper for converting vtt time into seconds
+        to_seconds = lambda x: (lambda y: int(y[0]) * 3600 + int(y[1]) * 60 + float(y[2]))(x.split(":"))
+        if self.split not in ["train", "test", "val"]:
+            raise ValueError("Split argument must be 'train', 'test' or 'val'.")
+
+        with open(os.path.join(path, "subset2episode.json"), "r") as file:
+            filename_set = json.load(file)[self.split]
+
+        video_list = []
+        for filename in filename_set:
+            for caption in webvtt.read(os.path.join("subtitles", f'{filename}.vtt')):
+                video_list.append([filename, to_seconds(caption.start), to_seconds(caption.end), caption.text])
+        return video_list
 
 class PheonixDataset(Dataset):
+    """
+    A PyTorch dataset class for the PHOENIX-2014-T dataset.
+
+    Args:
+        root (str): The root directory of the dataset.
+        class_file (str, optional): The path to the class file containing a JSON object of class names and indices. 
+            If not provided, the class map will be generated and saved to "classes_pheonix.json". 
+        split (str, optional): The split of the dataset to use. Must be one of "train", "test", or "val". 
+        transform_video (bool, optional): Whether to transform the video data. 
+        width (int, optional): The width of the video frames.
+        height (int, optional): The height of the video frames. 
+        fps (int, optional): The frames per second of the videos.
+        mean (list[float], optional): The mean values for normalization. 
+        std (list[float], optional): The standard deviation values for normalization.
+    
+    Methods:
+        __len__(): Returns the length of the dataset.
+        __getitem__(idx): Returns the item at the given index.
+        get_video_list(path): Helper method to get a list of videos for the dataset.
+        num_class(): Returns the number of classes in the dataset.
+        get_class_names(self): Returns a list of the unique gloss targets in the dataset.
+        get_class_map(self): Helper methoding for loading the classes from the class file. 
+        generate_class_map(): Gets the entire pheonix vocab and provides an unique class idx for each.
+
+    """
     def __init__(self, root, class_file=None, split="train", transform_video=True, 
             width=224, height=224, fps=25, mean=[0, 0, 0], std=[1, 1, 1]):
         self.root = root
@@ -188,9 +352,24 @@ class PheonixDataset(Dataset):
         self.fps = fps
 
     def __len__(self):
+        """
+        Returns the number of samples in the dataset.
+
+        Returns:
+            int: The number of sampels in the dataset.
+        """
         return len(self.video_list)
 
     def __getitem__(self, idx):
+        """
+        Returns the video data, free translation, and gloss targets for a given index.
+        
+        Args:
+            idx (int): Index of the video in the dataset to retrieve.
+        
+        Returns:
+            tuple: A tuple containing video data, free translation, and gloss targets for the given index.
+        """
         filename = self.video_list[idx][0]
         glosses = self.video_list[idx][-2].split(" ")
         freetransl = self.video_list[idx][-1]
@@ -225,6 +404,15 @@ class PheonixDataset(Dataset):
 
 
     def get_video_list(self, path):
+        """
+        Gets the list of videos in the dataset.
+
+        Args:
+            path (str): The path to the root directory of the dataset.
+
+        Returns:
+            list: A list of lists, where each inner list contains the filename, gloss sequence, and free translation for a video.
+        """
         if self.split in ["train", "test", "val"]:
             self.split =  (lambda x: "dev" if x == "val" else self.split)(self.split)
             annontation_name = f"PHOENIX-2014-T.{self.split}.corpus.csv"
@@ -239,12 +427,30 @@ class PheonixDataset(Dataset):
         return video_list
 
     def num_classes(self):
+        """
+        Returns the number of classes in the dataset.
+
+        Returns:
+            int: The number of classes in the dataset.
+        """
         return len(self.class_map)
 
     def get_class_names(self):
+        """
+        Returns a list of the unique gloss targets in the dataset.
+        
+        Returns:
+            list: A list of the unique gloss targets in the dataset.
+        """
         return list(self.class_map.keys())
 
     def get_class_map(self, path):
+        """
+        Returns a list of the unique gloss targets in the dataset.
+        
+        Returns:
+            list: A list of the unique gloss targets in the dataset.
+        """
         if path == None:
             print("No class file specified... generating.")
             return self.generate_class_map()
@@ -252,22 +458,14 @@ class PheonixDataset(Dataset):
             with open(path, "r") as file:
                 return json.load(file)
 
-    def verify_files(self):
-        for split in ["train", "test", "dev"]:
-            annontation_name = f"PHOENIX-2014-T.{split}.corpus.csv"
-
-            with open(os.path.join(self.root, "annotations", "manual", annontation_name), 'r') as file:
-                csv_rows = list(csv.reader(file))
-
-            video_list = [row[0].split("|") for row in csv_rows[1:]]
-            for set in video_list:
-                filename = set[0]
-
     def generate_class_map(self):
         '''
         Gets the entire pheonix vocab and provides an unique class idx for each.
         Should be used only once, then generated file should be passed
         as parameter to class_file. 
+
+        Returns:
+            dict: A dictionary of each unique gloss and its corrosponding id
         '''
         class_map = {}
         for split in ["train", "test", "dev"]:
@@ -293,6 +491,31 @@ class PheonixDataset(Dataset):
 
 
 class WLASLDataset(Dataset):
+    """
+    A PyTorch dataset class for the WLASL dataset.
+
+    Args:
+        root (str): The root directory of the dataset.
+        class_file (str, optional): The path to the class file containing a JSON object of class names and indices. 
+            If not provided, the class map will be generated and saved to "classes_wlasl.json". 
+        split (str, optional): The split of the dataset to use. Must be one of "train", "test", or "val". 
+        transform_video (bool, optional): Whether to transform the video data. 
+        width (int, optional): The width of the video frames.
+        height (int, optional): The height of the video frames. 
+        fps (int, optional): The frames per second of the videos.
+        mean (list[float], optional): The mean values for normalization. 
+        std (list[float], optional): The standard deviation values for normalization.
+    
+    Methods:
+        __len__(): Returns the length of the dataset.
+        __getitem__(idx): Returns the item at the given index.
+        get_video_list(path): Helper method to get a list of videos for the dataset.
+        num_class(): Returns the number of classes in the dataset.
+        get_class_map(self): Helper methoding for loading the classes from the class file. 
+        generate_class_map(): Gets the entire pheonix vocab and provides an unique class idx for each.
+
+    """
+
     def __init__(self, root, class_file=None, split="train", transform_video=True, 
             width=224, height=224, fps=25, mean=[0, 0, 0], std=[1, 1, 1]):
         self.root = root
@@ -307,9 +530,24 @@ class WLASLDataset(Dataset):
         self.std = std
 
     def __len__(self):
+        """
+        Returns the length of the dataset.
+
+        Returns:
+            int: The length of the dataset.
+        """
         return len(self.video_list)
 
     def __getitem__(self, idx):
+        """
+        Returns a tuple pair (video data, label) of the sample at the given index.
+
+        Args:
+            idx (int): The index of the item to return.
+
+        Returns:
+            tuple: A tuple containing the video data, the corresponding class label.
+        """
         filename = self.video_list[idx][0]
         gloss = self.video_list[idx][1]
         
@@ -337,6 +575,15 @@ class WLASLDataset(Dataset):
         return video_data["video"], self.class_map[gloss]
 
     def get_video_list(self, path):
+        """
+        Helper method for retrieving the list of videos for the specified split.
+
+        Args:
+            path (str): The root directory of the dataset.
+
+        Returns:
+            list: A list of video metadata, including the filename, gloss, and fps.
+        """
         if self.split not in ["train", "test", "val"]:
             raise ValueError("Split argument must be 'train', 'test' or 'val'.")
 
@@ -353,9 +600,24 @@ class WLASLDataset(Dataset):
         return video_list
 
     def num_classes(self):
+        """
+        Returns the number of classes in the dataset.
+
+        Returns:
+            int: The number of classes in the dataset.
+        """
         return len(self.class_map)
 
     def get_class_map(self, path):
+        """
+        Returns a dictionary mapping class labels to integer indices.
+
+        Args:
+            path (str): The path to the class file.
+
+        Returns:
+            dict: A dictionary mapping class labels to integer indices.
+        """
         if path == None:
             print("No class file specified... generating.")
             return self.generate_class_map()
@@ -369,6 +631,9 @@ class WLASLDataset(Dataset):
         Gets the entire wlasl vocab and provides an unique class idx for each.
         Should be used only once, then generated file should be passed
         as parameter to class_file. 
+
+        Returns:
+            dict: A dictionary mapping class labels to integer indices
         '''
         gloss_list = []
         with open(os.path.join(self.root, "WLASL_v0.3.json"), "r") as file:
@@ -434,9 +699,8 @@ def batch_mean_and_sd_std(dataloader):
 
 def collate_fn(batch, device):
     '''
-    Should be passed to dataloader. 
-    Additional parameter can be passed on call with:
-    collate_fn=partial(elar_collate_fn, device=device)
+    Used for transforming various datasets into a format required for training. 
+    Should be used to overide default collate_fn in dataloader.
     '''
     data, freetransl, gloss_targets = zip(*batch)
     data_lengths = torch.ceil(torch.Tensor([ t.shape[1]/4 for t in data])).int().to(device)
@@ -450,6 +714,10 @@ def collate_fn(batch, device):
     return data, data_lengths, gloss_targets, gloss_lengths, freetransl
 
 def s3d_collate_fn(batch, device):
+    '''
+    Used for transforming WLASL dataset into a format required for training. 
+    Should be used to overide default collate_fn in dataloader. 
+    '''
     data, targets = zip(*batch)
     data = [ torch.Tensor(t).permute(1, 0, 2, 3).to(device) for t in data ]
     data = torch.nn.utils.rnn.pad_sequence(data, batch_first=True).permute(0, 2, 1, 3, 4)

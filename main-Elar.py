@@ -27,7 +27,7 @@ def main(weights):
 
     num_class = dataset.num_classes()
     # ------- Model Setup
-    model = EndToEndModule(num_class, classify=True, backbone_weights="", src_lang="au_GL", tgt_lang="en_XX", freeze=True)
+    model = EndToEndModule(num_class, backbone_weights="", src_lang="au_GL", tgt_lang="en_XX", freeze=True)
     model.add_tokens(dataset.class_names)
     load_weights(model, weights)
     model.to(device)
