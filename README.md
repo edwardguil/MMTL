@@ -1,11 +1,11 @@
-# A Simple Multi-Modality Transfer Learning - Network Implementation
+# Multi-Modality Transfer Learning - Network Implementation
 
 This repository contains a Pytorch implementation of the end-to-end sign language translation network proposed by Yutong Chen Et al., in the paper: [A Simple Multi-Modality Transfer Learning Baseline for Sign Language Translation](https://arxiv.org/abs/2203.04287)[1]. It also contains custom Pytorch datasets for [RWTH-PHOENIX-Weather 2014](https://www-i6.informatik.rwth-aachen.de/~koller/RWTH-PHOENIX/)[2], [BOBSL](https://www.robots.ox.ac.uk/~vgg/data/bobsl/)[3], [WLASL](https://dxli94.github.io/WLASL/)[4] and [Auslan Corpus](https://www.elararchive.org/dk0001)[5], to allow for easy reproducability. 
 
 ## Description
 
 ### Overview
-The sign language datasets currently available, such as PHOENIX-2014T and CSL-Daily, only have 10K-20K sets of sign videos, gloss annotations, and texts. This is much smaller than the typical parallel data used to train spoken language translation models, which usually have around 1 million samples. Therefore, the lack of data is a major obstacle in creating accurate sign language translation models. To solve this problem, this network proposed an end-to-end network combined with progressive pretraining, starting with general-domain datasets and moving towards within-domain datasets. At the time of publication this achieved SOTA. 
+The sign language datasets currently available, such as PHOENIX-2014T and CSL-Daily, only have 10K-20K sets of sign videos, gloss annotations, and texts. This is much smaller than the typical parallel data used to train spoken language translation models, which usually have around 1 million samples. Therefore, the lack of data is a major obstacle in creating accurate sign language translation models. This proposed end-to-end network combined with progressive pretraining ois an attempt to solve this problem. The pretraining starts with general-domain datasets and moves towards within-domain datasets. At the time of publication this achieved state of the art on sign language translation. 
 
 ### Implementation Notes
 The MMTL network is contained within MMTL.py and the custom datasets are implemented in datasets.py. In the hopes of speeding up reproducability, there are three examples of training the network in: example-Elar, example-Phoenix and example-Wlasl. Due to dataset copyrights, the pre-trained network weights are unabled to be released.  
