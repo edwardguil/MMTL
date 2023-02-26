@@ -9,11 +9,12 @@ from s3d import *
 
 class EndToEndModule(nn.Module):
     """
-    A PyTorch module that implements an end-to-end sign language translator.
+    A PyTorch module that implements an end-to-end sign language translator. 
     This network contains two distinct modules, the Visual Module and a 
     Language Module, bridged by an intermediate MLP (V-L Mapper). By 
     default, the V-L mapper takes the dense gloss representation as
-    input.
+    input. More information on this network can be found here:
+    https://arxiv.org/abs/2203.04287
 
     Args:
         num_class (int): The number of classes in the input dataset.

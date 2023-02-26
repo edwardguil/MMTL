@@ -1,4 +1,8 @@
-import torch
+'''
+This file demonstrates an example of training the MMTL network on the Pheonix Corpus.
+'''
+
+import torch, sys
 from torch.utils.data import DataLoader
 from models import VisualModule, LanguageModule, EndToEndModule, load_weights
 from datasets import ElarDataset, PheonixDataset, BobslDataset, collate_fn, batch_mean_and_sd

@@ -1,7 +1,10 @@
+'''
+This file demonstrates an example of training the MMTL network on the ELAR Auslan Corpus.
+'''
+
 import sys, torch
 from torch.utils.data import DataLoader
 from models import VisualModule, LanguageModule, EndToEndModule, load_weights
-from modelLanguage import LanguageModule
 from datasets import ElarDataset, PheonixDataset, BobslDataset, collate_fn, batch_mean_and_sd
 from torchtext.data.metrics import bleu_score
 from functools import partial

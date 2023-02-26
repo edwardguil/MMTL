@@ -1,3 +1,7 @@
+'''
+This file demonstrates an example of training the S3D network on the WLASL Corpus.
+'''
+
 import torch
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
