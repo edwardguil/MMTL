@@ -12,12 +12,13 @@ class BobslDataset(Dataset):
             width=224, height=224, fps=25, mean=[0, 0, 0], std=[1, 1, 1]):
         self.root = root
         self.split = split
-        self.video_list = self.get_video_list(root)
+        self.video_list = self.get_video_list(root)[496202:]
         self.transform_video = transform_video
         self.width = width
         self.height = height
         self.mean = mean
         self.std = std
+        self.fps = fps
 
     def __len__(self):
         return len(self.video_list)
@@ -105,14 +106,13 @@ class ElarDataset(Dataset):
             raise ValueError(f"{os.path.join(self.root, filename)} dosen't contain .mp4 file.")
 
         # Extract Video Data
-        video = EncodedVideo.from_path(video_path)
-        video_data = video.get_clip(start, end)
+        video_data = {"video" : read_video(video_path, start_pts=start, end_pts=end, pts_unit="sec", output_format="TCHW")[0].permute(1, 0, 2, 3)}
 
         # Transforms
         if self.transform_video:
             if int((end - start) * self.fps) > video_data['video'].shape[1]:
                 if self.warnings:
-                    print(f"Warning! Sampling clip: '{filename}' with start time: {start} will increase frames. Lower fps.")
+                    print(f"Warning! Sampling clip: '{filename}' with start time: {start} will increase frames. Either: Verify clip or continue.")
             transform =  ApplyTransformToKey(
                 key="video",
                 transform=Compose(
@@ -121,29 +121,27 @@ class ElarDataset(Dataset):
                         Resize((self.width, self.height)),
                         Lambda(lambda x: x/255.0),
                         NormalizeVideo(self.mean, self.std)
-                        # Lambda(lambda x: x.permute(1, 0, 2, 3)),
-                        # Normalize(self.mean, self.std),
-                        # Lambda(lambda x: x.permute(1, 0, 2, 3))
                     ]
                 ),
             )
 
             video_data = transform(video_data)
         
-        # # Map Glosses To Ints with Lexicon
-        # gloss_targets = [[self.lexicon_map[char.upper()] for char in gloss] for gloss in glosses]
-        # temp = []
-        # for chars in gloss_targets:
-        #     for char in chars:
-        #         temp.append(char)
-        #     temp.append(self.lexicon_map["_"])
-        # gloss_targets = temp
-        gloss_targets = [self.class_map[gloss] for gloss in glosses]
+        try:
+            gloss_targets = []
+            for gloss in glosses:
+                if gloss.strip() != "":
+                    gloss_targets.append(self.class_map.index(gloss.strip().upper()))
+        except Exception as e:
+            raise ValueError(f"Gloss Dosen't Exist. Free: {freetransl}. Gloss {gloss}. Verify integrity of class and annotation files.")
 
         return video_data['video'], freetransl, gloss_targets  
 
     def num_classes(self):
         return len(self.class_map)
+
+    def get_class_names(self):
+        return list(self.class_map.keys())
 
     def read_elar(self, path):
         video_list = []
@@ -163,7 +161,16 @@ class ElarDataset(Dataset):
     
     def read_class_file(self, path):
         class_names = [c.strip() for c in open(path)]
-        return {name : idx for idx, name in enumerate(class_names)}
+        self.class_names = [name.upper() for name in class_names]
+        return class_names
+
+
+    def convert_idx_str(self, glosses):
+        str = ""
+        for gloss in glosses:
+            str += self.class_map[gloss]
+            str += " "
+        return str
 
 
 class PheonixDataset(Dataset):
@@ -178,6 +185,7 @@ class PheonixDataset(Dataset):
         self.height = height
         self.mean = mean
         self.std = std
+        self.fps = fps
 
     def __len__(self):
         return len(self.video_list)
@@ -195,8 +203,7 @@ class PheonixDataset(Dataset):
             video = torch.stack([image_transform(Image.open(path)) for path in image_paths]).permute(1, 0, 2, 3)
             video_data = {"video" : video}
         except:
-            print(f"FN: {filename}")
-            exit()
+            raise ValueError(f"Folder: {filename} is missing or contains no images. Verify integrity of dataset.")
 
         if self.transform_video:
             transform =  ApplyTransformToKey(
@@ -233,6 +240,9 @@ class PheonixDataset(Dataset):
 
     def num_classes(self):
         return len(self.class_map)
+
+    def get_class_names(self):
+        return list(self.class_map.keys())
 
     def get_class_map(self, path):
         if path == None:
@@ -305,7 +315,7 @@ class WLASLDataset(Dataset):
         
         video_path = os.path.join(self.root, "videos", f"{filename}.mp4")
         if not os.path.exists(video_path):
-            raise ValueError(f"Video {filename}.mp4 dosen't exist. Remove from {self.split} set.")
+            raise ValueError(f"Video {filename}.mp4 dosen't exist. Verify dataset integrity or remove from {self.split} set.")
 
         video = EncodedVideo.from_path(video_path)
         video_data = video.get_clip(0, 1000)
@@ -348,13 +358,13 @@ class WLASLDataset(Dataset):
     def get_class_map(self, path):
         if path == None:
             print("No class file specified... generating.")
-            return self.generate_class_map(path)
+            return self.generate_class_map()
         else:
             with open(path, "r") as file:
                 return json.load(file)
 
     
-    def generate_class_map(self, path):
+    def generate_class_map(self):
         '''
         Gets the entire wlasl vocab and provides an unique class idx for each.
         Should be used only once, then generated file should be passed
@@ -377,9 +387,52 @@ class WLASLDataset(Dataset):
 
 
 
+def batch_mean_and_sd(dataloader):
+    '''
+    Calculates mean and std of a dataset contained in dataloader. 
+    Can be used with Pheonix, ELAR and Bobsl datasets.
+    '''
+    with torch.no_grad():
+        channels_sum, channels_squared_sum, num_batches = 0, 0, 0
+        try:
+            for step, (data, _, _, _, freetransl) in enumerate(dataloader):
+                # Mean over batch, height and width, but not over the channels
+                channels_sum += torch.mean(data, dim=[0,2,3,4])
+                channels_squared_sum += torch.mean(data**2, dim=[0,2,3,4])
+                num_batches += 1
 
+        except Exception as e:
+            print(f"Exception Caught: {e}. Step: {step}. Freetransl {freetransl}")
+            print(f"Printing info for continuing calculation.")
+            print(f"Num Batches: {num_batches}. Channels Sum: {channels_sum}. Channels Squared Sum: {channels_squared_sum}")
+            exit()
 
-def elar_collate_fn(batch, device):
+        mean = channels_sum / num_batches
+
+        std = (channels_squared_sum / num_batches - mean ** 2) ** 0.5
+
+    return mean, std     
+
+def batch_mean_and_sd_std(dataloader):
+    '''
+    Calculates mean and std of a dataset contained in dataloader. 
+    Can be used with Wlasl datasets.
+    '''
+    with torch.no_grad():
+        channels_sum, channels_squared_sum, num_batches = 0, 0, 0
+        for step, (data, target) in enumerate(dataloader):
+            # Mean over batch, height and width, but not over the channels
+            channels_sum += torch.mean(data, dim=[0,2,3,4])
+            channels_squared_sum += torch.mean(data**2, dim=[0,2,3,4])
+            num_batches += 1
+        
+        mean = channels_sum / num_batches
+
+        std = (channels_squared_sum / num_batches - mean ** 2) ** 0.5
+
+    return mean, std  
+
+def collate_fn(batch, device):
     '''
     Should be passed to dataloader. 
     Additional parameter can be passed on call with:
