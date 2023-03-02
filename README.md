@@ -1,6 +1,6 @@
 # Multi-Modality Transfer Learning - Network Implementation
 
-This repository contains a Pytorch implementation of the end-to-end sign language translation network proposed by Yutong Chen Et al., in the paper: [A Simple Multi-Modality Transfer Learning Baseline for Sign Language Translation](https://arxiv.org/abs/2203.04287)[1]. It also contains custom Pytorch datasets for [RWTH-PHOENIX-Weather 2014](https://www-i6.informatik.rwth-aachen.de/~koller/RWTH-PHOENIX/)[2], [BOBSL](https://www.robots.ox.ac.uk/~vgg/data/bobsl/)[3], [WLASL](https://dxli94.github.io/WLASL/)[4] and [Auslan Corpus](https://www.elararchive.org/dk0001)[5], to allow for easy reproducability. 
+This repository contains a Pytorch implementation of the end-to-end sign language translation network proposed by Yutong Chen Et al., in the paper: [A Simple Multi-Modality Transfer Learning Baseline for Sign Language Translation](https://arxiv.org/abs/2203.04287)[1]. It also contains custom Pytorch datasets for [RWTH-PHOENIX-Weather 2014](https://www-i6.informatik.rwth-aachen.de/~koller/RWTH-PHOENIX/)[2], [BOBSL](https://www.robots.ox.ac.uk/~vgg/data/bobsl/)[3], [WLASL](https://dxli94.github.io/WLASL/)[4] and [Auslan Corpus](https://www.elararchive.org/dk0001)[5], to allow for easy reproducibility. 
 
 ## Description
 
@@ -8,13 +8,13 @@ This repository contains a Pytorch implementation of the end-to-end sign languag
 The sign language datasets currently available, such as PHOENIX-2014T and CSL-Daily, only have 10K-20K sets of sign videos, gloss annotations, and texts. This is much smaller than the typical parallel data used to train spoken language translation models, which usually have around 1 million samples. Therefore, the lack of data is a major obstacle in creating accurate sign language translation models. This proposed end-to-end network combined with progressive pretraining ois an attempt to solve this problem. The pretraining starts with general-domain datasets and moves towards within-domain datasets. At the time of publication this achieved state of the art on sign language translation. 
 
 ### Implementation Notes
-The MMTL network is contained within MMTL.py and the custom datasets are implemented in datasets.py. In the hopes of speeding up reproducability, there are three examples of training the network in: example-Elar, example-Phoenix and example-Wlasl. Due to dataset copyrights, the pre-trained network weights are unabled to be released.  
+The MMTL network is contained within MMTL.py and the custom datasets are implemented in datasets.py. In the hopes of speeding up reproducibility, there are three examples of training the network in: example-Elar, example-Phoenix and example-Wlasl. Due to dataset copyrights, the pre-trained network weights are unable to be released.  
 
-You can however utlize the pretrained weights for the public datasets. The language transformer, mBart, will automatically load the weights (mBart-large-cc25). Additionally, if you wish to use the backbone pretrained on kinetics400, download the weight file from [here](https://github.com/kylemin/S3D), and add it to the root directory named "./S3D_kinetics400.pt" (or simply edit where necessary).
+You can however utilize the pre-trained weights for the public datasets. The language transformer, mBart, will auto-load the weights (mBart-large-cc25). If you wish to use the backbone pre-trained on kinetics400, download the weight file from [here](https://github.com/kylemin/S3D), and add it to the root directory named "./S3D_kinetics400.pt" (or simply edit where necessary).
 
 ## Getting Started
 
-### Dependacies
+### Dependencies
 ``` Python
 Pillow==9.3.0
 pytorchvideo==0.1.5
@@ -29,12 +29,12 @@ webvtt-py==0.4.6
 
 ### Executing program
 1) Clone repo
-2) Install dependacies 
-3) Download Pheonix Dataset to root of repo, name folder "PHOENIX-2014-T"
+2) Install Dependancies 
+3) Download Phoenix Dataset to root of repo, name folder "PHOENIX-2014-T"
 4) Run example-Phoenix.py
 
 ## Author Notes
-This repository was built for a 10 week research effort into Auslan sign language translation (SLT). It aimed to answer if pretraining on a dataset with no glosses but a large vocabulary overlap (BOBSL), could improve the performance of Auslan SLT. Unforunetly, due to hardware and time constraints, this network was unable to be trained on the BOBSL dataset, thus unable to answer the key question. On the positive side, it was able to demonstrate improvements on Auslan SLT by progressive pretraining on cross-domain languages (ASL, DGS) and general-domain tasks (action recgonotion and language translation). 
+This repository was built for a 10-week research effort into Auslan sign language translation (SLT). It aimed to answer if pretraining on a dataset with no glosses but a large vocabulary overlap (BOBSL), could improve the performance of Auslan SLT. Unfortunately, because of hardware and time constraints, this network could not be trained on the BOBSL dataset, thus unable to answer the key question. On the positive side, it was able to demonstrate improvements on Auslan SLT by progressive pretraining on cross-domain languages (ASL, DGS) and general-domain tasks (action recognition and language translation). 
 
 If you have any questions or need help in implementation, feel free to PR this README. 
 
