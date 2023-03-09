@@ -49,3 +49,28 @@ If you have any questions or need help in implementation, feel free to PR this R
 
 <a id=5>[5]</a> Johnston, Trevor. 2008. Auslan Corpus. Endangered Languages Archive. Handle: http://hdl.handle.net/2196/00-0000-0000-0000-D7CF-8. Accessed on Feburary 2022.
 
+
+# Need help in implementation
+Hi, I'm a graduate student at San Jose State University. I'm doing my thesis with my professor on SLT topic, and I'm very interested in your paper.
+
+But I'm new to this area and not very familiar with Hugging face. While I tried to run your code for Phoenix dataset, it promps me with the error ”If this is a private repository, make sure to pass a token having permission to this repo with `use_auth_token` or log in with `huggingface-cli login` and pass `use_auth_token=True`“  
+
+I tried to modified the code to add my personal token, but it doesn't solve the issue. 
+```python
+
+config = PretrainedConfig.from_pretrained(
+            "StacyYang/mbart-large-cc25", 
+            revision="main",
+            auth_token="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",
+        )
+
+super(LanguageModule, self).__init__()
+self.model = MBartForConditionalGeneration.from_pretrained("StacyYang/mbart-large-cc25", config=config)
+self.tokenizer = MBartTokenizer.from_pretrained("StacyYang/mbart-large-cc255", config=config, src_lang=src_lang, tgt_lang=tgt_lang)
+self.position_embeddings = PositionEmbedding(num_embeddings=num_class, embedding_dim=1024, mode=PositionEmbedding.MODE_ADD)
+self.tgt_lang = tgt_lang
+self.src_lang = src_lang
+self.imbeds = imbeds
+```
+
+Can I trouble you to write a more detailed info about how to implement your code regarding the hugging face logging in issue? I appreciate the help. Thank you so much.
