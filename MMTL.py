@@ -12,8 +12,10 @@ class EndToEndModule(nn.Module):
     A PyTorch module that implements an end-to-end sign language translator. 
     This network contains two distinct modules, the Visual Module and a 
     Language Module, bridged by an intermediate MLP (V-L Mapper). By 
-    default, the V-L mapper takes the dense gloss representation as
-    input. More information on this network can be found here:
+    default, the V-L mapper takes the dense gloss representation. If
+    you wish too pass the gloss predictions, use this the Language
+    and Visual model seperately. More information on this network can 
+    be found here:
     https://arxiv.org/abs/2203.04287
 
     Args:
@@ -144,8 +146,8 @@ class LanguageModule(nn.Module):
                 will have positional embeddings added.
         """
         super(LanguageModule, self).__init__()
-        self.model = MBartForConditionalGeneration.from_pretrained("mbart-large-cc25")
-        self.tokenizer = MBartTokenizer.from_pretrained("mbart-large-cc25", src_lang=src_lang, tgt_lang=tgt_lang)
+        self.model = MBartForConditionalGeneration.from_pretrained("facebook/mbart-large-cc25")
+        self.tokenizer = MBartTokenizer.from_pretrained("facebook/mbart-large-cc25", src_lang=src_lang, tgt_lang=tgt_lang)
         self.position_embeddings = PositionEmbedding(num_embeddings=num_class, embedding_dim=1024, mode=PositionEmbedding.MODE_ADD)
         self.tgt_lang = tgt_lang
         self.src_lang = src_lang
@@ -284,7 +286,7 @@ class BackBone(nn.Module):
 
     def forward(self, x):
         y = self.base(x)
-        # Use spatial poolig to make data spatially invariant (if it isn't already)
+        # Use spatial pooling to make data spatially invariant (if it isn't already)
         # y = temporal_spatial_pyramid_pool(y)
         y = F.avg_pool3d(y, (1, y.size(3), y.size(4)), stride=1)
         y = y.view(y.size(0), y.size(2), y.size(1))

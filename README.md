@@ -16,15 +16,15 @@ You can however utilize the pre-trained weights for the public datasets. The lan
 
 ### Dependencies
 ``` Python
-Pillow==9.3.0
-pytorchvideo==0.1.5
-sentencepiece==0.1.97
-torch==1.13.1
-torch-position-embedding==0.8.0
-torchtext==0.14.1
+Pillow
+torch
 torchvision==0.14.0
-transformers==4.25.1
-webvtt-py==0.4.6
+torchtext
+sentencepiece
+torch-position-embedding
+webvtt-py
+transformers
+pytorchvideo
 ```
 
 ### Executing program
@@ -32,6 +32,13 @@ webvtt-py==0.4.6
 2) Install Dependancies 
 3) Download Phoenix Dataset to root of repo, name folder "PHOENIX-2014-T"
 4) Run example-Phoenix.py
+
+### Training On New Languages
+To train the network on new languages (e.g. German Sign Language), one needs to do two key things: 
+1) Expand the language codes contained within the list FAIRSEQ_LANGUAGE_CODES in customTokenizer.py. To do this, simply come up with a unique code lang code not contained within the list, and hard code it into the end. 
+
+2) After adding a new language token/s, get the entire new languages vocabulary and add it to the language modules tokenizer, then resize the token embeddings layer in the transformer. This can be done in a single step, by calling ```add_tokens``` in either the Language module or the EndToEnd module.
+
 
 ## Author Notes
 This repository was built for a 10-week research effort into Auslan sign language translation (SLT). It aimed to answer if pretraining on a dataset with no glosses but a large vocabulary overlap (BOBSL), could improve the performance of Auslan SLT. Unfortunately, because of hardware and time constraints, this network could not be trained on the BOBSL dataset, thus unable to answer the key question. On the positive side, it was able to demonstrate improvements on Auslan SLT by progressive pretraining on cross-domain languages (ASL, DGS) and general-domain tasks (action recognition and language translation). 

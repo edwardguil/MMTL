@@ -1,0 +1,9 @@
+Pillow
+torch
+torchvision==0.14.0
+torchtext
+sentencepiece
+torch-position-embedding
+webvtt-py
+transformers
+pytorchvideo

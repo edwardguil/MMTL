@@ -23,6 +23,14 @@ from transformers.tokenization_utils import AddedToken, BatchEncoding, PreTraine
 from transformers.utils import logging
 
 
+# fmt: off
+# Can add additional languages codes by updating this list.
+# Note: 'au_GL' and 'de_GL' are used for demonstration in the 
+# example code, it is suggested you remove them from
+# this list and add the language codes you wish to use.  
+FAIRSEQ_LANGUAGE_CODES = ["ar_AR", "cs_CZ", "de_DE", "en_XX", "es_XX", "et_EE", "fi_FI", "fr_XX", "gu_IN", "hi_IN", "it_IT", "ja_XX", "kk_KZ", "ko_KR", "lt_LT", "lv_LV", "my_MM", "ne_NP", "nl_XX", "ro_RO", "ru_RU", "si_LK", "tr_TR", "vi_VN", "zh_CN", "au_GL", "de_GL"]
+# fmt: on
+
 logger = logging.get_logger(__name__)
 
 SPIECE_UNDERLINE = "▁"
@@ -45,10 +53,7 @@ PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
     "facebook/mbart-large-cc25": 1024,
 }
 
-# fmt: off
-# Can add additional languages codes by updating this list
-FAIRSEQ_LANGUAGE_CODES = ["ar_AR", "cs_CZ", "de_DE", "en_XX", "es_XX", "et_EE", "fi_FI", "fr_XX", "gu_IN", "hi_IN", "it_IT", "ja_XX", "kk_KZ", "ko_KR", "lt_LT", "lv_LV", "my_MM", "ne_NP", "nl_XX", "ro_RO", "ru_RU", "si_LK", "tr_TR", "vi_VN", "zh_CN", "au_GL", "de_GL"]
-# fmt: on
+
 
 
 class MBartTokenizer(PreTrainedTokenizer):
