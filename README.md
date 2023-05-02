@@ -2,6 +2,8 @@
 
 This repository contains a Pytorch implementation of the end-to-end sign language translation network proposed by Yutong Chen Et al., in the paper: [A Simple Multi-Modality Transfer Learning Baseline for Sign Language Translation](https://arxiv.org/abs/2203.04287)[1]. It also contains custom Pytorch datasets for [RWTH-PHOENIX-Weather 2014](https://www-i6.informatik.rwth-aachen.de/~koller/RWTH-PHOENIX/)[2], [BOBSL](https://www.robots.ox.ac.uk/~vgg/data/bobsl/)[3], [WLASL](https://dxli94.github.io/WLASL/)[4] and [Auslan Corpus](https://www.elararchive.org/dk0001)[5], to allow for easy reproducibility. 
 
+At the time of release, no official repository had been released for this paper. There now exists a official version [here](https://github.com/FangyunWei/SLRT/tree/main/TwoStreamNetwork). 
+
 ## Description
 
 ### Overview
